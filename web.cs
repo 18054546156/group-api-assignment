@@ -1,49 +1,100 @@
-// Take-Home Assignment  
-// Instruc ons:  
-// • You are to keep this document and assignment details private and work on it 
-// independently.  
-// • If you require any clarifica ons, please email michael_labas da@simtech.a
-// star.edu.sg with your ques ons.  
-// • Upon comple on of the assignment (can be any me before the deadline), please 
-// inform us by email to michael_labas da@simtech.a-star.edu.sg. We will then send 
-// you a mee ng link to share with us your work and design thoughts.  
-// Architecture: 
-// Problem Statement:  
-// Design and implement a RESTful API for retrieving and crea ng Group data exposed from 
-// the following public API (as third-party):  
-// 1. Create Group:   
-// POST h ps://dev-apex
-// 01.southeastasia.cloudapp.azure.com:7500/api/partner/groups 
-// Input:  
-// {"name": "string"} 
-// 2.  Group List:   
-// GET h ps://dev-apex
-// 01.southeastasia.cloudapp.azure.com:7500/api/partner/groups 
-// Above APIs are protected by JWT authen ca on. Get the token through authen ca on 
-// using:  
-// POST h ps://dev-apex-01.southeastasia.cloudapp.azure.com:7600/connect/token 
-// • Input:  
-// Headers 
-// __tenant: T003 
-// Body 
-// username: applicant 
-// password: 881d&793M 
-// client_id: External_Integra on 
-// grant_type: password 
-// client_secret: 3a165ec4-6a3f-a19e-657c-0739e26cb85e 
-// scope: PartnerService 
-// Details:  
-// • Create a private repository on GitHub for this assignment  
-// • Use C#, Java or Nodejs and your preferred API frameworks (desirable C#).  
-// • Implement HTTP request to create 5 new groups (API #1) prefixed with your first 
-// name e.g.  
-// o Michael-Group1. 
-// o Michael-Group2. 
-// o Michael-Group3. 
-// o Michael-Group4. 
-// o Michael-Group5.  
-// • To validate your entries by implemen ng HTTP request to retrieve groups in API #2.  
-// • State your assump ons and architectural considera ons  
-// • You are free to assume everything else but make sure you document them.  
-// • Bonus:  
-// o Automated tests  
+using System;
+using System.Net.Http;
+using System.Text;
+using System.Text.Json;
+using System.Threading.Tasks;
+
+public class Program
+{
+    private static readonly HttpClient client = new HttpClient();
+    private const string TokenEndpoint = "https://dev-apex-01.southeastasia.cloudapp.azure.com:7600/connect/token";
+    private const string GroupEndpoint = "https://dev-apex-01.southeastasia.cloudapp.azure.com:7500/api/partner/groups";
+
+    public static async Task Main(string[] args)
+    {
+        try
+        {
+            // 1. 获取访问令牌
+            var token = await GetAccessTokenAsync();
+            Console.WriteLine("成功获取访问令牌");
+
+            // 2. 创建5个组
+            await CreateGroupsAsync(token, "YourName");
+            Console.WriteLine("成功创建5个组");
+
+            // 3. 验证创建的组
+            await ValidateGroupsAsync(token);
+            Console.WriteLine("成功验证组列表");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"发生错误: {ex.Message}");
+        }
+    }
+
+    private static async Task<string> GetAccessTokenAsync()
+    {
+        var formData = new Dictionary<string, string>
+        {
+            {"username", "applicant"},
+            {"password", "881d&793M"},
+            {"client_id", "External_Integration"},
+            {"grant_type", "password"},
+            {"client_secret", "3a165ec4-6a3f-a19e-657c-0739e26cb85e"},
+            {"scope", "PartnerService"}
+        };
+
+        client.DefaultRequestHeaders.Add("__tenant", "T003");
+
+        var response = await client.PostAsync(TokenEndpoint, new FormUrlEncodedContent(formData));
+        response.EnsureSuccessStatusCode();
+
+        var content = await response.Content.ReadFromJsonAsync<TokenResponse>();
+        return content.Access_token;
+    }
+
+    private static async Task CreateGroupsAsync(string token, string firstName)
+    {
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+        for (int i = 1; i <= 5; i++)
+        {
+            var groupName = $"{firstName}-Group{i}";
+            var content = new StringContent(
+                JsonSerializer.Serialize(new { name = groupName }),
+                Encoding.UTF8,
+                "application/json");
+
+            var response = await client.PostAsync(GroupEndpoint, content);
+            response.EnsureSuccessStatusCode();
+            Console.WriteLine($"Created group: {groupName}");
+        }
+    }
+
+    private static async Task ValidateGroupsAsync(string token)
+    {
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+        var response = await client.GetAsync(GroupEndpoint);
+        response.EnsureSuccessStatusCode();
+
+        var groups = await response.Content.ReadFromJsonAsync<List<GroupDto>>();
+        Console.WriteLine("Retrieved groups:");
+        foreach (var group in groups)
+        {
+            Console.WriteLine($"- {group.Name}");
+        }
+    }
+}
+
+public class TokenResponse
+{
+    public string Access_token { get; set; }
+    public string Token_type { get; set; }
+    public int Expires_in { get; set; }
+}
+
+public class GroupDto
+{
+    public string Name { get; set; }
+}  
