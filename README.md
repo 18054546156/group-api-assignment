@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Group API Assignment
 
 RESTful API implementation for retrieving and creating Group data.
@@ -22,3 +23,6 @@ RESTful API implementation for retrieving and creating Group data.
 - C# / .NET Core
 - xUnit for testing
 - Moq for mocking 
+=======
+# group-api-assignment
+>>>>>>> 933ad6fe171c6d54375631e98971e8b3171e029b
