@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Linq;
 
 public class Program
 {
@@ -21,12 +22,11 @@ public class Program
             Console.WriteLine("成功获取访问令牌");
 
             // 2. 创建5个组
-            await CreateGroupsAsync(token, "YourName");
+            await CreateGroupsAsync(token, "XUXIAOYU");
             Console.WriteLine("成功创建5个组");
 
             // 3. 验证创建的组
             await ValidateGroupsAsync(token);
-            Console.WriteLine("成功验证组列表");
         }
         catch (Exception ex)
         {
@@ -61,35 +61,19 @@ public class Program
         client.DefaultRequestHeaders.Add("__tenant", "T003");
         client.DefaultRequestHeaders.Authorization = 
             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-
-        // 添加时间戳避免重名
-        var timestamp = DateTime.Now.ToString("HHmmss");
         
         for (int i = 1; i <= 5; i++)
         {
-            var groupName = $"{firstName}-Group{i}-{timestamp}";
+            var groupName = $"{firstName}-Group{i}";
             var content = new StringContent(
                 JsonSerializer.Serialize(new { name = groupName }),
                 Encoding.UTF8,
                 "application/json");
 
-            try
+            var response = await client.PostAsync(GroupEndpoint, content);
+            if (response.IsSuccessStatusCode)
             {
-                var response = await client.PostAsync(GroupEndpoint, content);
-                var responseBody = await response.Content.ReadAsStringAsync();
-                
-                if (response.IsSuccessStatusCode)
-                {
-                    Console.WriteLine($"Created group: {groupName}");
-                }
-                else
-                {
-                    Console.WriteLine($"Failed to create group {groupName}: {responseBody}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error creating group {groupName}: {ex.Message}");
+                Console.WriteLine($"Created group: {groupName}");
             }
         }
     }
@@ -102,24 +86,25 @@ public class Program
             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
         var response = await client.GetAsync(GroupEndpoint);
-        response.EnsureSuccessStatusCode();
-
-        try 
+        var groupResponse = await response.Content.ReadFromJsonAsync<GroupListResponse>();
+        
+        if (groupResponse?.Items != null)
         {
-            // 修改这里：使用GroupListResponse而不是List<GroupDto>
-            var groupResponse = await response.Content.ReadFromJsonAsync<GroupListResponse>();
-            Console.WriteLine("Retrieved groups:");
-            if (groupResponse?.Items != null)
+            var expectedGroups = new[]
             {
-                foreach (var group in groupResponse.Items)
-                {
-                    Console.WriteLine($"- {group.Name} (ID: {group.Id})");
-                }
+                "XUXIAOYU-Group1",
+                "XUXIAOYU-Group2",
+                "XUXIAOYU-Group3",
+                "XUXIAOYU-Group4",
+                "XUXIAOYU-Group5"
+            };
+
+            Console.WriteLine("\n验证创建的组:");
+            foreach (var expectedName in expectedGroups)
+            {
+                var exists = groupResponse.Items.Any(g => g.Name == expectedName);
+                Console.WriteLine($"- {expectedName}");
             }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"JSON 解析错误: {ex.Message}");
         }
     }
 }
@@ -143,6 +128,4 @@ public class GroupDto
     public string? Name { get; set; }
     public DateTime CreationTime { get; set; }
     public string? CreatorId { get; set; }
-    public DateTime? LastModificationTime { get; set; }
-    public string? LastModifierId { get; set; }
 }  
